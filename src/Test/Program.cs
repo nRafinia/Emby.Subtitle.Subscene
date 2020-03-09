@@ -2,7 +2,6 @@
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
-using Emby.Subtitle.Subscene.Models;
 using Emby.Subtitle.Subscene.Providers;
 using MediaBrowser.Common.Net;
 
