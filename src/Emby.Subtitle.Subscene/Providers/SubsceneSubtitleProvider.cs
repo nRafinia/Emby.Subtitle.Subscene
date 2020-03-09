@@ -20,7 +20,8 @@ namespace Emby.Subtitle.Subscene.Providers
     public class SubsceneSubtitleProvider : ISubtitleProvider, IHasOrder
     {
         private const string Domain = "https://subscene.com";
-        private const string SearchApi = "/subtitles/{0}/{1}";
+        private const string SubtitleUrl = "/subtitles/{0}/{1}";
+        private const string SearchUrl = "/subtitles/searchbytitle?query={0}&l=";
         private const string XmlTag = "<?xml version=\"1.0\" ?>";
 
         public string Name => Plugin.StaticName;
@@ -66,12 +67,12 @@ namespace Emby.Subtitle.Subscene.Providers
 
             var startIndex = html.IndexOf("<div class=\"download\">");
             var endIndex = html.IndexOf("</div>", startIndex);
-            
+
             var downText = html.SubStr(startIndex, endIndex);
             startIndex = downText.IndexOf("<a href=\"");
             endIndex = downText.IndexOf("\"", startIndex + 10);
 
-            var downloadLink = downText.SubStr(startIndex+10, endIndex-1);
+            var downloadLink = downText.SubStr(startIndex + 10, endIndex - 1);
 
             _logger?.Info($"Subscene= Downloading subtitle= {downloadLink}");
 
@@ -114,34 +115,13 @@ namespace Emby.Subtitle.Subscene.Providers
 
         public async Task<IEnumerable<RemoteSubtitleInfo>> Search(string title, int? year, string lang)
         {
-            _logger?.Info($"Subscene= Request subtitle for {title}, language={lang}");
-            title = title
-                .Replace('-', ' ')
-                .Replace(':', ' ')
-                .Replace('!', ' ')
-                .Replace('?', ' ')
-                .Replace('#', ' ')
-                .Replace(' ', '-')
-                .Replace("-II", "-2")
-                .Replace("-III", "-3")
-                .Replace("----", "-")
-                .Replace("---", "-")
-                .Replace("--", "-");
+            _logger?.Info($"Subscene= Request subtitle for {title}, language={lang}, year={year}");
 
             var res = new List<RemoteSubtitleInfo>();
             try
             {
-                var url = string.Format(SearchApi, title, MapLanguage(lang));
                 var xml = new XmlDocument();
-                var html = await GetHtml(Domain, url);
-
-                if (string.IsNullOrWhiteSpace(html))
-                {
-                    _logger?.Info($"Subscene= Searching for subtitle \"{title}-{year}\", language={lang}");
-                    url = string.Format(SearchApi, $"{title}-{year}", MapLanguage(lang));
-                    xml = new XmlDocument();
-                    html = await GetHtml(Domain, url);
-                }
+                var html = await SearchMovie(title, year, lang);
 
                 if (string.IsNullOrWhiteSpace(html))
                     return res;
@@ -163,11 +143,13 @@ namespace Emby.Subtitle.Subscene.Providers
                     if (string.IsNullOrWhiteSpace(name))
                         continue;
 
-                    var id = (node.SelectSingleNode(".//a")?.Attributes["href"].Value + "___" + lang).Replace("/", "__");
+                    var id = (node.SelectSingleNode(".//a")?.Attributes["href"].Value + "___" + lang)
+                        .Replace("/", "__");
                     var item = new RemoteSubtitleInfo
                     {
                         Id = id,
-                        Name = RemoveExtraCharacter(node.SelectSingleNode(".//a")?.SelectNodes("span").Item(1)?.InnerText),
+                        Name = RemoveExtraCharacter(node.SelectSingleNode(".//a")?.SelectNodes("span").Item(1)
+                            ?.InnerText),
                         Author = RemoveExtraCharacter(node.SelectSingleNode("td[@class='a6']")?.InnerText),
                         ProviderName = RemoveExtraCharacter(node.SelectSingleNode("td[@class='a5']")?.InnerText),
                         ThreeLetterISOLanguageName = NormalizeLanguage(lang),
@@ -176,20 +158,15 @@ namespace Emby.Subtitle.Subscene.Providers
                     res.Add(item);
                 }
             }
-            catch (ArgumentOutOfRangeException) { }
-            catch (ArgumentNullException) { }
-            catch (NullReferenceException) { }
-            catch (System.Net.WebException ex)
+            catch (Exception e)
             {
-                //Growl.ErrorGlobal(Properties.Langs.Lang.ServerOut + "\n" + ex.Message);
-            }
-            catch (HttpRequestException hx)
-            {
-                //Growl.ErrorGlobal(Properties.Langs.Lang.ServerOut + "\n" + hx.Message);
+                _logger?.Error(e.Message, e);
             }
 
             res.RemoveAll(l => string.IsNullOrWhiteSpace(l.Name));
-            res = res.GroupBy(s => s.ProviderName)
+
+
+            res = res.GroupBy(s => s.Id)
                 .Select(s => new RemoteSubtitleInfo()
                 {
                     Id = s.First().Id,
@@ -201,6 +178,72 @@ namespace Emby.Subtitle.Subscene.Providers
             return res.OrderBy(s => s.Name);
         }
 
+        private async Task<string> SearchMovie(string title, int? year, string lang)
+        {
+            var sTitle = title
+                .Replace('-', ' ')
+                .Replace(':', ' ')
+                .Replace('!', ' ')
+                .Replace('?', ' ')
+                .Replace('#', ' ')
+                .Replace(' ', '-')
+                .Replace("-II", "-2")
+                .Replace("-III", "-3")
+                .Replace("----", "-")
+                .Replace("---", "-")
+                .Replace("--", "-");
+
+            var url = string.Format(SubtitleUrl, sTitle, MapLanguage(lang));
+            var html = await GetHtml(Domain, url);
+
+            if (!string.IsNullOrWhiteSpace(html) || year == null)
+                return html;
+
+            _logger?.Info($"Subscene= Searching for subtitle \"{sTitle}-{year}\", language={lang}");
+            url = string.Format(SubtitleUrl, $"{sTitle}-{year}", MapLanguage(lang));
+            html = await GetHtml(Domain, url);
+
+            if (!string.IsNullOrWhiteSpace(html))
+                return html;
+
+            _logger?.Info($"Subscene= Searching for site search \"{sTitle}\"");
+            url = string.Format(SearchUrl, title);
+            html = await GetHtml(Domain, url);
+
+            if (string.IsNullOrWhiteSpace(html))
+                return html;
+
+            var xml = new XmlDocument();
+            xml.LoadXml($"{XmlTag}{html}");
+
+            var node = xml.SelectSingleNode("//div[@class='search-result']");
+            if (node == null)
+                return html;
+
+            var ex = node?.SelectSingleNode("h2[@class='exact']");
+            if (ex == null)
+                return html;
+
+            node = node.SelectSingleNode("ul");
+            if (node == null)
+                return html;
+            var sItems = node.SelectNodes(".//a");
+
+            foreach (XmlNode item in sItems)
+            {
+                var sYear = item.InnerText.Split('(', ')')[1];
+                if (year.Value != Convert.ToInt16(sYear))
+                    continue;
+
+                var link = item.Attributes["href"].Value;
+                link += $"/{MapLanguage(lang)}";
+                html = await GetHtml(Domain, link);
+                break;
+            }
+
+            return html;
+        }
+
         private string RemoveExtraCharacter(string text) =>
             text?.Replace("\r\n", "")
                 .Replace("\t", "")
@@ -208,7 +251,7 @@ namespace Emby.Subtitle.Subscene.Providers
 
         private async Task<string> GetHtml(string domain, string path)
         {
-            var html = await Tools.RequestUrl(domain, path, HttpMethod.Get,timeout:15000).ConfigureAwait(false);
+            var html = await Tools.RequestUrl(domain, path, HttpMethod.Get, timeout: 15000).ConfigureAwait(false);
 
             var scIndex = html.IndexOf("<script");
             while (scIndex >= 0)
@@ -243,7 +286,7 @@ namespace Emby.Subtitle.Subscene.Providers
 
         private string NormalizeLanguage(string language)
         {
-            if (language != null)
+            if (string.IsNullOrWhiteSpace(language))
             {
                 var culture = _localizationManager?.FindLanguageInfo(language.AsSpan());
                 if (culture != null)
