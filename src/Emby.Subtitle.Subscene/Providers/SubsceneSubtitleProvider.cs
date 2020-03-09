@@ -165,7 +165,6 @@ namespace Emby.Subtitle.Subscene.Providers
 
             res.RemoveAll(l => string.IsNullOrWhiteSpace(l.Name));
 
-
             res = res.GroupBy(s => s.Id)
                 .Select(s => new RemoteSubtitleInfo()
                 {
@@ -182,10 +181,10 @@ namespace Emby.Subtitle.Subscene.Providers
         {
             var sTitle = title
                 .Replace('-', ' ')
-                .Replace(':', ' ')
-                .Replace('!', ' ')
-                .Replace('?', ' ')
-                .Replace('#', ' ')
+                .Replace(":", "")
+                .Replace("!", "")
+                .Replace("?", "")
+                .Replace("#", "")
                 .Replace(' ', '-')
                 .Replace("-II", "-2")
                 .Replace("-III", "-3")

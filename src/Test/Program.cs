@@ -15,11 +15,11 @@ namespace Test
 
         static async Task Main(string[] args)
         {
-            var txt = "Fantastic Beasts: The Crimes of Grindelwald";
-            //var txt = "joker";
+            //var txt = "Fantastic Beasts: The Crimes of Grindelwald";
+            var txt = "Shazam!";
             var lang = "per";
             var searchResult =await new SubsceneSubtitleProvider(null,null,null,null)
-                .Search(txt,2018,lang);
+                .Search(txt,2019,lang);
 
             Console.WriteLine("Result:");
             foreach (var item in searchResult)

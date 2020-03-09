@@ -77,26 +77,5 @@ namespace Emby.Subtitle.Subscene.Providers
         public static string SubStr(this string value, int startIndex, int endIndex) =>
             value.Substring(startIndex, (endIndex - startIndex + 1));
 
-        /// <summary>
-        /// Convert string to Base64
-        /// </summary>
-        /// <param name="plainText">String to convert</param>
-        /// <returns>Base64 string</returns>
-        public static string Base64Encode(this string plainText)
-        {
-            var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(plainText);
-            return Convert.ToBase64String(plainTextBytes);
-        }
-
-        /// <summary>
-        /// Convert Base64 to string
-        /// </summary>
-        /// <param name="base64EncodedData">Base64 strign</param>
-        /// <returns>String</returns>
-        public static string Base64Decode(this string base64EncodedData)
-        {
-            var base64EncodedBytes = System.Convert.FromBase64String(base64EncodedData);
-            return System.Text.Encoding.UTF8.GetString(base64EncodedBytes);
-        }
     }
 }
