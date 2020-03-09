@@ -182,6 +182,8 @@ namespace Emby.Subtitle.Subscene.Providers
             var sTitle = title
                 .Replace('-', ' ')
                 .Replace(":", "")
+                .Replace("'", "")
+                .Replace("\"", "")
                 .Replace("!", "")
                 .Replace("?", "")
                 .Replace("#", "")
@@ -205,7 +207,7 @@ namespace Emby.Subtitle.Subscene.Providers
             if (!string.IsNullOrWhiteSpace(html))
                 return html;
 
-            _logger?.Info($"Subscene= Searching for site search \"{sTitle}\"");
+            _logger?.Info($"Subscene= Searching for site search \"{title}\"");
             url = string.Format(SearchUrl, title);
             html = await GetHtml(Domain, url);
 
@@ -219,7 +221,9 @@ namespace Emby.Subtitle.Subscene.Providers
             if (node == null)
                 return html;
 
-            var ex = node?.SelectSingleNode("h2[@class='exact']");
+            var ex = node?.SelectSingleNode("h2[@class='exact']") 
+                     ?? node?.SelectSingleNode("h2[@class='close']");
+
             if (ex == null)
                 return html;
 
@@ -250,7 +254,7 @@ namespace Emby.Subtitle.Subscene.Providers
 
         private async Task<string> GetHtml(string domain, string path)
         {
-            var html = await Tools.RequestUrl(domain, path, HttpMethod.Get, timeout: 15000).ConfigureAwait(false);
+            var html = await Tools.RequestUrl(domain, path, HttpMethod.Get).ConfigureAwait(false);
 
             var scIndex = html.IndexOf("<script");
             while (scIndex >= 0)
