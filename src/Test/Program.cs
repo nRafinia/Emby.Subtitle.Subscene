@@ -15,17 +15,18 @@ namespace Test
 
         static async Task Main(string[] args)
         {
-            var txt = "Dolittle";
-            var lang = "farsi_persian";
-            /*var searchResult =await new SubsceneSubtitleProvider(null,null,null,null).Search(txt,lang);
+            var txt = "Fantastic Beasts: The Crimes of Grindelwald";
+            var lang = "per";
+            var searchResult =await new SubsceneSubtitleProvider(null,null,null,null)
+                .Search(txt,2014,lang);
 
             foreach (var item in searchResult)
             {
                 Console.WriteLine($"{item.Name} - {item.Id}");
-            }*/
+            }
 
-            await new SubsceneSubtitleProvider(null, null, null, null).GetSubtitles(
-                "__subtitles__frozen-2__farsi_persian__2057576___per",CancellationToken.None);
+            /*await new SubsceneSubtitleProvider(null, null, null, null).GetSubtitles(
+                "__subtitles__frozen-2__farsi_persian__2057576___per",CancellationToken.None);*/
             
 
             Console.ReadKey();

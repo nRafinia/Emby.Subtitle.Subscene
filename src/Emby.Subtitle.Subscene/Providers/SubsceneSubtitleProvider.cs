@@ -28,7 +28,7 @@ namespace Emby.Subtitle.Subscene.Providers
         public IEnumerable<VideoContentType> SupportedMediaTypes =>
             new List<VideoContentType>() { VideoContentType.Movie };
 
-        public int Order => 1;
+        public int Order => 0;
 
 
         private readonly IHttpClient _httpClient;
@@ -42,11 +42,6 @@ namespace Emby.Subtitle.Subscene.Providers
             _logger = logger;
             _appHost = appHost;
             _localizationManager = localizationManager;
-        }
-
-        public Task<IEnumerable<RemoteSubtitleInfo>> Search(SubtitleSearchRequest request, CancellationToken cancellationToken)
-        {
-            return Search(request.Name, request.Language);
         }
 
         private HttpRequestOptions BaseRequestOptions => new HttpRequestOptions
@@ -111,13 +106,27 @@ namespace Emby.Subtitle.Subscene.Providers
             }
         }
 
-        public async Task<IEnumerable<RemoteSubtitleInfo>> Search(string title, string lang)
+        public Task<IEnumerable<RemoteSubtitleInfo>> Search(SubtitleSearchRequest request,
+            CancellationToken cancellationToken)
+        {
+            return Search(request.Name, request.ProductionYear, request.Language);
+        }
+
+        public async Task<IEnumerable<RemoteSubtitleInfo>> Search(string title, int? year, string lang)
         {
             _logger?.Info($"Subscene= Request subtitle for {title}, language={lang}");
             title = title
+                .Replace('-', ' ')
+                .Replace(':', ' ')
+                .Replace('!', ' ')
+                .Replace('?', ' ')
+                .Replace('#', ' ')
                 .Replace(' ', '-')
                 .Replace("-II", "-2")
-                .Replace("-III", "-3");
+                .Replace("-III", "-3")
+                .Replace("----", "-")
+                .Replace("---", "-")
+                .Replace("--", "-");
 
             var res = new List<RemoteSubtitleInfo>();
             try
@@ -125,6 +134,15 @@ namespace Emby.Subtitle.Subscene.Providers
                 var url = string.Format(SearchApi, title, MapLanguage(lang));
                 var xml = new XmlDocument();
                 var html = await GetHtml(Domain, url);
+
+                if (string.IsNullOrWhiteSpace(html))
+                {
+                    _logger?.Info($"Subscene= Searching for subtitle \"{title}-{year}\", language={lang}");
+                    url = string.Format(SearchApi, $"{title}-{year}", MapLanguage(lang));
+                    xml = new XmlDocument();
+                    html = await GetHtml(Domain, url);
+                }
+
                 if (string.IsNullOrWhiteSpace(html))
                     return res;
 
@@ -184,11 +202,13 @@ namespace Emby.Subtitle.Subscene.Providers
         }
 
         private string RemoveExtraCharacter(string text) =>
-            text?.Replace("\r\n", "").Replace("\t", "").Trim();
+            text?.Replace("\r\n", "")
+                .Replace("\t", "")
+                .Trim();
 
         private async Task<string> GetHtml(string domain, string path)
         {
-            var html = await Tools.RequestUrl(domain, path, HttpMethod.Get).ConfigureAwait(false);
+            var html = await Tools.RequestUrl(domain, path, HttpMethod.Get,timeout:15000).ConfigureAwait(false);
 
             var scIndex = html.IndexOf("<script");
             while (scIndex >= 0)
@@ -210,6 +230,13 @@ namespace Emby.Subtitle.Subscene.Providers
             }
 
             html = html.Replace("&nbsp;", "");
+            html = html.Replace("&amp;", "Xamp;");
+            html = html.Replace("&", "&amp;");
+            html = html.Replace("Xamp;", "&amp;");
+            html = html.Replace("--->", "---");
+            html = html.Replace("<---", "---");
+            html = html.Replace("<--", "--");
+            html = html.Replace("Xamp;", "&amp;");
             html = html.Replace("<!DOCTYPE html>", "");
             return html;
         }
@@ -218,7 +245,7 @@ namespace Emby.Subtitle.Subscene.Providers
         {
             if (language != null)
             {
-                var culture = _localizationManager.FindLanguageInfo(language.AsSpan());
+                var culture = _localizationManager?.FindLanguageInfo(language.AsSpan());
                 if (culture != null)
                 {
                     return culture.ThreeLetterISOLanguageName;
