@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
@@ -179,14 +180,10 @@ namespace Emby.Subtitle.Subscene.Providers
 
         private async Task<string> SearchMovie(string title, int? year, string lang)
         {
-            var sTitle = title
+            var rgx = new Regex("[^a-zA-Z0-9 -]");
+            var sTitle = rgx.Replace(title, "");
+            sTitle = sTitle
                 .Replace('-', ' ')
-                .Replace(":", "")
-                .Replace("'", "")
-                .Replace("\"", "")
-                .Replace("!", "")
-                .Replace("?", "")
-                .Replace("#", "")
                 .Replace(' ', '-')
                 .Replace("-II", "-2")
                 .Replace("-III", "-3")
