@@ -403,6 +403,9 @@ namespace Emby.Subtitle.Subscene.Providers
                     break;
                 case "urd":
                     lang = "urdu";
+                    break;                
+                case "pob":
+                    lang = "brazillian-portuguese";
                     break;
             }
 
