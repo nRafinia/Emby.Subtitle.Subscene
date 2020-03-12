@@ -54,8 +54,6 @@ namespace Emby.Subtitle.Subscene.Providers
 
         public async Task<SubtitleResponse> GetSubtitles(string id, CancellationToken cancellationToken)
         {
-            _logger?.Info($"Subscene= Request for subtitle= {id}");
-
             var ids = id.Split(new[] { "___" }, StringSplitOptions.RemoveEmptyEntries);
             var url = ids[0].Replace("__", "/");
             var lang = ids[1];
@@ -86,7 +84,7 @@ namespace Emby.Subtitle.Subscene.Providers
                 var archive = new ZipArchive(response.Content);
 
                 var item = archive.Entries.Count > 1
-                    ? archive.Entries.First(a => a.FullName.ToLower().Contains("utf"))
+                    ? archive.Entries.FirstOrDefault(a => a.FullName.ToLower().Contains("utf"))
                     : archive.Entries.First();
 
                 if (item == null)
@@ -102,7 +100,6 @@ namespace Emby.Subtitle.Subscene.Providers
                     fileExt = "srt";
                 }
 
-                _logger?.Info($"Subscene= language= {NormalizeLanguage(lang)}, ext={fileExt}");
                 return new SubtitleResponse
                 {
                     Format = fileExt,
