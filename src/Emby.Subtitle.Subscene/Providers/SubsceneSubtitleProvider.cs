@@ -89,6 +89,9 @@ namespace Emby.Subtitle.Subscene.Providers
                     ? archive.Entries.First(a => a.FullName.ToLower().Contains("utf"))
                     : archive.Entries.First();
 
+                if (item == null)
+                    item = archive.Entries.First();
+
                 await item.Open().CopyToAsync(ms).ConfigureAwait(false);
                 ms.Position = 0;
 

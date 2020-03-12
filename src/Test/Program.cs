@@ -14,19 +14,19 @@ namespace Test
 
         static async Task Main(string[] args)
         {
-            /*var txt = "Bright";
+            var txt = "Hibernatus";
             var lang = "per";
             var searchResult =await new SubsceneSubtitleProvider(null,null,null,null)
-                .Search(txt,2017,lang);
+                .Search(txt,1969,lang);
 
             Console.WriteLine("Result:");
             foreach (var item in searchResult)
             {
                 Console.WriteLine($"{item.Name} - {item.Id}");
-            }*/
+            }
 
-            await new SubsceneSubtitleProvider(null, null, null, null).GetSubtitles(
-                "__subtitles__bright__farsi_persian__1922088___per", CancellationToken.None);
+            /*await new SubsceneSubtitleProvider(null, null, null, null).GetSubtitles(
+                "__subtitles__bright__farsi_persian__1922088___per", CancellationToken.None);*/
             
 
             Console.ReadKey();
