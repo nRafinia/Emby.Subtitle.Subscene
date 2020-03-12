@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using System.Xml;
 using MediaBrowser.Common;
 using MediaBrowser.Common.Net;
@@ -180,7 +181,7 @@ namespace Emby.Subtitle.Subscene.Providers
 
         private async Task<string> SearchMovie(string title, int? year, string lang)
         {
-            var rgx = new Regex("[^a-zA-Z0-9 -]");
+            var rgx = new Regex("[^a-zA-Z0-9 & -]");
             var sTitle = rgx.Replace(title, "");
             sTitle = sTitle
                 .Replace('-', ' ')
@@ -189,7 +190,8 @@ namespace Emby.Subtitle.Subscene.Providers
                 .Replace("-III", "-3")
                 .Replace("----", "-")
                 .Replace("---", "-")
-                .Replace("--", "-");
+                .Replace("--", "-")
+                .Replace("&","and");
 
             var url = string.Format(SubtitleUrl, sTitle, MapLanguage(lang));
             var html = await GetHtml(Domain, url);
@@ -205,7 +207,7 @@ namespace Emby.Subtitle.Subscene.Providers
                 return html;
 
             _logger?.Info($"Subscene= Searching for site search \"{title}\"");
-            url = string.Format(SearchUrl, title);
+            url = string.Format(SearchUrl, HttpUtility.UrlEncode(title));
             html = await GetHtml(Domain, url);
 
             if (string.IsNullOrWhiteSpace(html))

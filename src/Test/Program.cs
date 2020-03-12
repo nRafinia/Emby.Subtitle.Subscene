@@ -14,11 +14,10 @@ namespace Test
 
         static async Task Main(string[] args)
         {
-            var txt = "Birds of Prey (and the Fantabulous Emancipation of One Harley Quinn)";
-            //var txt = "Shazam!";
+            var txt = "Bright";
             var lang = "per";
             var searchResult =await new SubsceneSubtitleProvider(null,null,null,null)
-                .Search(txt,2020,lang);
+                .Search(txt,2017,lang);
 
             Console.WriteLine("Result:");
             foreach (var item in searchResult)
