@@ -14,7 +14,7 @@ namespace Test
 
         static async Task Main(string[] args)
         {
-            var txt = "Bright";
+            /*var txt = "Bright";
             var lang = "per";
             var searchResult =await new SubsceneSubtitleProvider(null,null,null,null)
                 .Search(txt,2017,lang);
@@ -23,10 +23,10 @@ namespace Test
             foreach (var item in searchResult)
             {
                 Console.WriteLine($"{item.Name} - {item.Id}");
-            }
+            }*/
 
-            /*await new SubsceneSubtitleProvider(null, null, null, null).GetSubtitles(
-                "__subtitles__frozen-2__farsi_persian__2057576___per",CancellationToken.None);*/
+            await new SubsceneSubtitleProvider(null, null, null, null).GetSubtitles(
+                "__subtitles__bright__farsi_persian__1922088___per", CancellationToken.None);
             
 
             Console.ReadKey();

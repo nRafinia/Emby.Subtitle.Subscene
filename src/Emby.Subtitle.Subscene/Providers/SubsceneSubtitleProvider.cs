@@ -56,7 +56,6 @@ namespace Emby.Subtitle.Subscene.Providers
         {
             _logger?.Info($"Subscene= Request for subtitle= {id}");
 
-            var xml = new XmlDocument();
             var ids = id.Split(new[] { "___" }, StringSplitOptions.RemoveEmptyEntries);
             var url = ids[0].Replace("__", "/");
             var lang = ids[1];
@@ -87,8 +86,8 @@ namespace Emby.Subtitle.Subscene.Providers
                 var archive = new ZipArchive(response.Content);
 
                 var item = archive.Entries.Count > 1
-                    ? archive.Entries.FirstOrDefault(a => a.FullName.Contains("utf"))
-                    : archive.Entries.FirstOrDefault();
+                    ? archive.Entries.First(a => a.FullName.ToLower().Contains("utf"))
+                    : archive.Entries.First();
 
                 await item.Open().CopyToAsync(ms).ConfigureAwait(false);
                 ms.Position = 0;
@@ -100,6 +99,7 @@ namespace Emby.Subtitle.Subscene.Providers
                     fileExt = "srt";
                 }
 
+                _logger?.Info($"Subscene= language= {NormalizeLanguage(lang)}, ext={fileExt}");
                 return new SubtitleResponse
                 {
                     Format = fileExt,
