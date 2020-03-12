@@ -37,3 +37,4 @@ Currently support languages:
 * swedish
 * thai
 * urdu
+* Brazilian Portuguese
