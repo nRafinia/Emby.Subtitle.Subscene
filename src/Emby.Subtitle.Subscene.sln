@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.29806.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Emby.Subtitle.Subscene", "Emby.Subtitle.Subscene\Emby.Subtitle.Subscene.csproj", "{43A641BC-91C6-4DB9-B6BE-370E0E7DB79B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{32994B1B-D9D2-4F3C-AAD2-93C551DEA597}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "Test\Test.csproj", "{32994B1B-D9D2-4F3C-AAD2-93C551DEA597}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

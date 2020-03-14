@@ -14,10 +14,10 @@ namespace Test
 
         static async Task Main(string[] args)
         {
-            var txt = "Hibernatus";
+            var txt = "آکوامن";
             var lang = "per";
-            var searchResult =await new SubsceneSubtitleProvider(null,null,null,null)
-                .Search(txt,1969,lang);
+            var searchResult =await new SubsceneSubtitleProvider(null,null,null,null, null)
+                .Search(txt,1969,lang, "tt1477834");
 
             Console.WriteLine("Result:");
             foreach (var item in searchResult)

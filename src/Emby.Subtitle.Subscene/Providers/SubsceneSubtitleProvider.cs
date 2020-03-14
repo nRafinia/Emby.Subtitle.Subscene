@@ -16,6 +16,7 @@ using MediaBrowser.Controller.Subtitles;
 using MediaBrowser.Model.Globalization;
 using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Providers;
+using MediaBrowser.Model.Serialization;
 
 namespace Emby.Subtitle.Subscene.Providers
 {
@@ -38,13 +39,16 @@ namespace Emby.Subtitle.Subscene.Providers
         private readonly ILogger _logger;
         private readonly IApplicationHost _appHost;
         private readonly ILocalizationManager _localizationManager;
+        private readonly IJsonSerializer _jsonSerializer;
+
         public SubsceneSubtitleProvider(IHttpClient httpClient, ILogger logger, IApplicationHost appHost
-            , ILocalizationManager localizationManager)
+            , ILocalizationManager localizationManager, IJsonSerializer jsonSerializer)
         {
             _httpClient = httpClient;
             _logger = logger;
             _appHost = appHost;
             _localizationManager = localizationManager;
+            _jsonSerializer = jsonSerializer;
         }
 
         private HttpRequestOptions BaseRequestOptions => new HttpRequestOptions
@@ -73,7 +77,7 @@ namespace Emby.Subtitle.Subscene.Providers
 
             var downloadLink = downText.SubStr(startIndex + 10, endIndex - 1);
 
-            _logger?.Info($"Subscene= Downloading subtitle= {downloadLink}");
+            _logger?.Debug($"Subscene= Downloading subtitle= {downloadLink}");
 
             var opts = BaseRequestOptions;
             opts.Url = $"{Domain}/{downloadLink}";
@@ -83,12 +87,9 @@ namespace Emby.Subtitle.Subscene.Providers
                 var ms = new MemoryStream();
                 var archive = new ZipArchive(response.Content);
 
-                var item = archive.Entries.Count > 1
+                var item = (archive.Entries.Count > 1
                     ? archive.Entries.FirstOrDefault(a => a.FullName.ToLower().Contains("utf"))
-                    : archive.Entries.First();
-
-                if (item == null)
-                    item = archive.Entries.First();
+                    : archive.Entries.First()) ?? archive.Entries.First();
 
                 await item.Open().CopyToAsync(ms).ConfigureAwait(false);
                 ms.Position = 0;
@@ -112,18 +113,21 @@ namespace Emby.Subtitle.Subscene.Providers
         public Task<IEnumerable<RemoteSubtitleInfo>> Search(SubtitleSearchRequest request,
             CancellationToken cancellationToken)
         {
-            return Search(request.Name, request.ProductionYear, request.Language);
+            var prov = request.ProviderIds?.FirstOrDefault(p =>
+                p.Key.ToLower() == "imdb" || p.Key.ToLower() == "imdb");
+
+            return Search(request.Name, request.ProductionYear, request.Language, prov?.Value);
         }
 
-        public async Task<IEnumerable<RemoteSubtitleInfo>> Search(string title, int? year, string lang)
+        public async Task<IEnumerable<RemoteSubtitleInfo>> Search(string title, int? year, string lang, string movieId)
         {
-            _logger?.Info($"Subscene= Request subtitle for {title}, language={lang}, year={year}");
+            _logger?.Info($"Subscene= Request subtitle for '{title}', language={lang}, year={year}, movie Id={movieId}");
 
             var res = new List<RemoteSubtitleInfo>();
             try
             {
                 var xml = new XmlDocument();
-                var html = await SearchMovie(title, year, lang);
+                var html = await SearchMovie(title, year, lang, movieId);
 
                 if (string.IsNullOrWhiteSpace(html))
                     return res;
@@ -179,11 +183,26 @@ namespace Emby.Subtitle.Subscene.Providers
             return res.OrderBy(s => s.Name);
         }
 
-        private async Task<string> SearchMovie(string title, int? year, string lang)
+        private async Task<string> SearchMovie(string title, int? year, string lang, string movieId)
         {
             var rgx = new Regex("[^a-zA-Z0-9 & -]");
-            var sTitle = rgx.Replace(title, "");
-            sTitle = sTitle
+            //var sTitle = rgx.Replace(title, "");
+
+            if (!string.IsNullOrWhiteSpace(movieId))
+            {
+                var mDb = new MovieDb(_jsonSerializer, _httpClient, _appHost);
+                var info = await mDb.GetInfo(movieId);
+
+                if (info != null)
+                {
+                    year = info.release_date.Year;
+                    title = info.Title;
+                    //sTitle = rgx.Replace(info.Title, "");
+                    _logger.Info($"Subscene= Original movie title=\"{info.Title}\", year={info.release_date.Year}");
+                }
+            }
+
+            /*sTitle = sTitle
                 .Replace('-', ' ')
                 .Replace(' ', '-')
                 .Replace("-II", "-2")
@@ -191,24 +210,25 @@ namespace Emby.Subtitle.Subscene.Providers
                 .Replace("----", "-")
                 .Replace("---", "-")
                 .Replace("--", "-")
-                .Replace("&","and");
+                .Replace("&", "and");*/
 
+            /*_logger?.Debug($"Subscene= Searching for subtitle \"{sTitle}\", language={lang}");
             var url = string.Format(SubtitleUrl, sTitle, MapLanguage(lang));
             var html = await GetHtml(Domain, url);
 
             if (!string.IsNullOrWhiteSpace(html) || year == null)
                 return html;
 
-            _logger?.Info($"Subscene= Searching for subtitle \"{sTitle}-{year}\", language={lang}");
+            _logger?.Debug($"Subscene= Searching for subtitle \"{sTitle}-{year}\", language={lang}");
             url = string.Format(SubtitleUrl, $"{sTitle}-{year}", MapLanguage(lang));
             html = await GetHtml(Domain, url);
 
             if (!string.IsNullOrWhiteSpace(html))
-                return html;
+                return html;*/
 
-            _logger?.Info($"Subscene= Searching for site search \"{title}\"");
-            url = string.Format(SearchUrl, HttpUtility.UrlEncode(title));
-            html = await GetHtml(Domain, url);
+            _logger?.Debug($"Subscene= Searching for site search \"{title}\"");
+            var url = string.Format(SearchUrl, HttpUtility.UrlEncode(title));
+            var html = await GetHtml(Domain, url);
 
             if (string.IsNullOrWhiteSpace(html))
                 return html;
@@ -220,7 +240,7 @@ namespace Emby.Subtitle.Subscene.Providers
             if (node == null)
                 return html;
 
-            var ex = node?.SelectSingleNode("h2[@class='exact']") 
+            var ex = node?.SelectSingleNode("h2[@class='exact']")
                      ?? node?.SelectSingleNode("h2[@class='close']");
 
             if (ex == null)
@@ -405,7 +425,7 @@ namespace Emby.Subtitle.Subscene.Providers
                     break;
                 case "urd":
                     lang = "urdu";
-                    break;                
+                    break;
                 case "pob":
                     lang = "brazillian-portuguese";
                     break;
