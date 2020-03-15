@@ -492,6 +492,12 @@ namespace Emby.Subtitle.Subscene.Providers
                     break;
                 case "nno":
                     lang = "norwegian";
+                    break;                
+                case "nob":
+                    lang = "norwegian";
+                    break;                
+                case "nor":
+                    lang = "norwegian";
                     break;
                 case "por":
                     lang = "portuguese";
