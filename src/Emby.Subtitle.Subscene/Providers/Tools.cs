@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Net.Mime;
 using System.Text;
@@ -76,6 +77,5 @@ namespace Emby.Subtitle.Subscene.Providers
         /// <returns>Sub stringed text</returns>
         public static string SubStr(this string value, int startIndex, int endIndex) =>
             value.Substring(startIndex, (endIndex - startIndex + 1));
-
     }
 }

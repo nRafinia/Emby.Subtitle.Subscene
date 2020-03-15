@@ -30,7 +30,11 @@ namespace Emby.Subtitle.Subscene.Providers
         public string Name => Plugin.StaticName;
 
         public IEnumerable<VideoContentType> SupportedMediaTypes =>
-            new List<VideoContentType>() { VideoContentType.Movie };
+            new List<VideoContentType>()
+            {
+                VideoContentType.Movie,
+                VideoContentType.Episode
+            };
 
         public int Order => 0;
 
@@ -110,59 +114,44 @@ namespace Emby.Subtitle.Subscene.Providers
             }
         }
 
-        public Task<IEnumerable<RemoteSubtitleInfo>> Search(SubtitleSearchRequest request,
+        public async Task<IEnumerable<RemoteSubtitleInfo>> Search(SubtitleSearchRequest request,
             CancellationToken cancellationToken)
         {
-            var prov = request.ProviderIds?.FirstOrDefault(p =>
-                p.Key.ToLower() == "imdb" || p.Key.ToLower() == "imdb");
+            KeyValuePair<string, string>? prov;
+            prov = request.ProviderIds?.FirstOrDefault(p =>
+                p.Key.ToLower() == "imdb" || p.Key.ToLower() == "tmdb" || p.Key.ToLower() == "tvdb");
 
-            return Search(request.Name, request.ProductionYear, request.Language, prov?.Value);
+            if (prov == null)
+                return new List<RemoteSubtitleInfo>();
+
+            if (request.ContentType == VideoContentType.Episode &&
+                (request.ParentIndexNumber == null || request.IndexNumber == null))
+                return new List<RemoteSubtitleInfo>();
+
+            var title = request.ContentType == VideoContentType.Movie
+                ? request.Name
+                : request.SeriesName;
+
+            return await Search(title, request.ProductionYear, request.Language, request.ContentType, prov.Value.Value,
+                request.ParentIndexNumber ?? 0, request.IndexNumber ?? 0);
         }
 
-        public async Task<IEnumerable<RemoteSubtitleInfo>> Search(string title, int? year, string lang, string movieId)
+        public async Task<IEnumerable<RemoteSubtitleInfo>> Search(string title, int? year, string lang,
+            VideoContentType contentType, string movieId, int season, int episode)
         {
-            _logger?.Info($"Subscene= Request subtitle for '{title}', language={lang}, year={year}, movie Id={movieId}");
+            _logger?.Info(
+                $"Subscene= Request subtitle for '{title}', language={lang}, year={year}, movie Id={movieId}, Season={season}, Episode={episode}");
 
             var res = new List<RemoteSubtitleInfo>();
             try
             {
-                var xml = new XmlDocument();
-                var html = await SearchMovie(title, year, lang, movieId);
+                res = contentType == VideoContentType.Movie
+                    ? await SearchMovie(title, year, lang, movieId)
+                    : await SearchTV(title, year, lang, movieId, season, episode);
 
-                if (string.IsNullOrWhiteSpace(html))
+                if (!res.Any())
                     return res;
 
-                xml.LoadXml($"{XmlTag}{html}");
-
-                var repeater = xml.SelectNodes("//table/tbody/tr");
-
-                if (repeater == null)
-                {
-                    return res;
-                }
-
-                foreach (XmlElement node in repeater)
-                {
-                    var name = RemoveExtraCharacter(node.SelectSingleNode(".//a")?.SelectNodes("span").Item(1)
-                        ?.InnerText);
-
-                    if (string.IsNullOrWhiteSpace(name))
-                        continue;
-
-                    var id = (node.SelectSingleNode(".//a")?.Attributes["href"].Value + "___" + lang)
-                        .Replace("/", "__");
-                    var item = new RemoteSubtitleInfo
-                    {
-                        Id = id,
-                        Name = RemoveExtraCharacter(node.SelectSingleNode(".//a")?.SelectNodes("span").Item(1)
-                            ?.InnerText),
-                        Author = RemoveExtraCharacter(node.SelectSingleNode("td[@class='a6']")?.InnerText),
-                        ProviderName = RemoveExtraCharacter(node.SelectSingleNode("td[@class='a5']")?.InnerText),
-                        ThreeLetterISOLanguageName = NormalizeLanguage(lang),
-                        IsHashMatch = true
-                    };
-                    res.Add(item);
-                }
             }
             catch (Exception e)
             {
@@ -183,73 +172,48 @@ namespace Emby.Subtitle.Subscene.Providers
             return res.OrderBy(s => s.Name);
         }
 
-        private async Task<string> SearchMovie(string title, int? year, string lang, string movieId)
+        private async Task<List<RemoteSubtitleInfo>> SearchMovie(string title, int? year, string lang, string movieId)
         {
-            var rgx = new Regex("[^a-zA-Z0-9 & -]");
-            //var sTitle = rgx.Replace(title, "");
+            var res = new List<RemoteSubtitleInfo>();
 
             if (!string.IsNullOrWhiteSpace(movieId))
             {
                 var mDb = new MovieDb(_jsonSerializer, _httpClient, _appHost);
-                var info = await mDb.GetInfo(movieId);
+                var info = await mDb.GetMovieInfo(movieId);
 
                 if (info != null)
                 {
                     year = info.release_date.Year;
                     title = info.Title;
-                    //sTitle = rgx.Replace(info.Title, "");
                     _logger.Info($"Subscene= Original movie title=\"{info.Title}\", year={info.release_date.Year}");
                 }
             }
 
-            /*sTitle = sTitle
-                .Replace('-', ' ')
-                .Replace(' ', '-')
-                .Replace("-II", "-2")
-                .Replace("-III", "-3")
-                .Replace("----", "-")
-                .Replace("---", "-")
-                .Replace("--", "-")
-                .Replace("&", "and");*/
-
-            /*_logger?.Debug($"Subscene= Searching for subtitle \"{sTitle}\", language={lang}");
-            var url = string.Format(SubtitleUrl, sTitle, MapLanguage(lang));
-            var html = await GetHtml(Domain, url);
-
-            if (!string.IsNullOrWhiteSpace(html) || year == null)
-                return html;
-
-            _logger?.Debug($"Subscene= Searching for subtitle \"{sTitle}-{year}\", language={lang}");
-            url = string.Format(SubtitleUrl, $"{sTitle}-{year}", MapLanguage(lang));
-            html = await GetHtml(Domain, url);
-
-            if (!string.IsNullOrWhiteSpace(html))
-                return html;*/
-
+            #region Search subscene
             _logger?.Debug($"Subscene= Searching for site search \"{title}\"");
             var url = string.Format(SearchUrl, HttpUtility.UrlEncode(title));
             var html = await GetHtml(Domain, url);
 
             if (string.IsNullOrWhiteSpace(html))
-                return html;
+                return res;
 
             var xml = new XmlDocument();
             xml.LoadXml($"{XmlTag}{html}");
 
-            var node = xml.SelectSingleNode("//div[@class='search-result']");
-            if (node == null)
-                return html;
+            var xNode = xml.SelectSingleNode("//div[@class='search-result']");
+            if (xNode == null)
+                return res;
 
-            var ex = node?.SelectSingleNode("h2[@class='exact']")
-                     ?? node?.SelectSingleNode("h2[@class='close']");
+            var ex = xNode?.SelectSingleNode("h2[@class='exact']")
+                     ?? xNode?.SelectSingleNode("h2[@class='close']");
 
             if (ex == null)
-                return html;
+                return res;
 
-            node = node.SelectSingleNode("ul");
-            if (node == null)
-                return html;
-            var sItems = node.SelectNodes(".//a");
+            xNode = xNode.SelectSingleNode("ul");
+            if (xNode == null)
+                return res;
+            var sItems = xNode.SelectNodes(".//a");
 
             foreach (XmlNode item in sItems)
             {
@@ -262,8 +226,135 @@ namespace Emby.Subtitle.Subscene.Providers
                 html = await GetHtml(Domain, link);
                 break;
             }
+            #endregion
 
-            return html;
+            #region Extract subtitle links
+            xml = new XmlDocument();
+            xml.LoadXml($"{XmlTag}{html}");
+
+            var repeater = xml.SelectNodes("//table/tbody/tr");
+
+            if (repeater == null)
+            {
+                return res;
+            }
+
+            foreach (XmlElement node in repeater)
+            {
+                var name = RemoveExtraCharacter(node.SelectSingleNode(".//a")?.SelectNodes("span").Item(1)
+                    ?.InnerText);
+
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                var id = (node.SelectSingleNode(".//a")?.Attributes["href"].Value + "___" + lang)
+                    .Replace("/", "__");
+                var item = new RemoteSubtitleInfo
+                {
+                    Id = id,
+                    Name = RemoveExtraCharacter(node.SelectSingleNode(".//a")?.SelectNodes("span").Item(1)
+                        ?.InnerText),
+                    Author = RemoveExtraCharacter(node.SelectSingleNode("td[@class='a6']")?.InnerText),
+                    ProviderName = RemoveExtraCharacter(node.SelectSingleNode("td[@class='a5']")?.InnerText),
+                    ThreeLetterISOLanguageName = NormalizeLanguage(lang),
+                    IsHashMatch = true
+                };
+                res.Add(item);
+            }
+            #endregion
+
+            return res;
+        }
+
+        private readonly string[] _seasonNumbers = { "", "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth" };
+
+        private async Task<List<RemoteSubtitleInfo>> SearchTV(string title, int? year, string lang, string movieId, int season, int episode)
+        {
+            var res = new List<RemoteSubtitleInfo>();
+
+            var mDb = new MovieDb(_jsonSerializer, _httpClient, _appHost);
+            var info = await mDb.GetTvInfo(movieId);
+
+            if (info == null)
+                return new List<RemoteSubtitleInfo>();
+
+            #region Search TV Shows
+            title = info.Name;
+
+            _logger?.Debug($"Subscene= Searching for site search \"{title}\"");
+            var url = string.Format(SearchUrl, HttpUtility.UrlEncode($"{title} - {_seasonNumbers[season]} Season"));
+            var html = await GetHtml(Domain, url);
+
+            if (string.IsNullOrWhiteSpace(html))
+                return res;
+
+            var xml = new XmlDocument();
+            xml.LoadXml($"{XmlTag}{html}");
+
+            var xNode = xml.SelectSingleNode("//div[@class='search-result']");
+            if (xNode == null)
+                return res;
+
+            var ex = xNode?.SelectSingleNode("h2[@class='exact']")
+                     ?? xNode?.SelectSingleNode("h2[@class='close']");
+            if (ex == null)
+                return res;
+
+            xNode = xNode.SelectSingleNode("ul");
+            if (xNode == null)
+                return res;
+
+            var sItems = xNode.SelectNodes(".//a");
+            foreach (XmlNode item in sItems)
+            {
+                if (!item.InnerText.StartsWith($"{title} - {_seasonNumbers[season]} Season"))
+                    continue;
+
+                var link = item.Attributes["href"].Value;
+                link += $"/{MapLanguage(lang)}";
+                html = await GetHtml(Domain, link);
+                break;
+            }
+            #endregion
+
+            #region Extract subtitle links
+            xml = new XmlDocument();
+            xml.LoadXml($"{XmlTag}{html}");
+
+            var repeater = xml.SelectNodes("//table/tbody/tr");
+
+            if (repeater == null)
+            {
+                return res;
+            }
+            foreach (XmlElement node in repeater)
+            {
+                var name = RemoveExtraCharacter(node.SelectSingleNode(".//a")?.SelectNodes("span").Item(1)
+                    ?.InnerText);
+
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                var id = (node.SelectSingleNode(".//a")?.Attributes["href"].Value + "___" + lang)
+                    .Replace("/", "__");
+                var item = new RemoteSubtitleInfo
+                {
+                    Id = id,
+                    Name = RemoveExtraCharacter(node.SelectSingleNode(".//a")?.SelectNodes("span").Item(1)
+                        ?.InnerText),
+                    Author = RemoveExtraCharacter(node.SelectSingleNode("td[@class='a6']")?.InnerText),
+                    ProviderName = RemoveExtraCharacter(node.SelectSingleNode("td[@class='a5']")?.InnerText),
+                    ThreeLetterISOLanguageName = NormalizeLanguage(lang),
+                    IsHashMatch = true
+                };
+                res.Add(item);
+            }
+            #endregion
+
+            var eTitle = $"S{season.ToString().PadLeft(2, '0')}E{episode.ToString().PadLeft(2, '0')}";
+            res.RemoveAll(s => !s.Name.Contains(eTitle));
+
+            return res;
         }
 
         private string RemoveExtraCharacter(string text) =>
