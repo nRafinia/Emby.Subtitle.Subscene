@@ -164,7 +164,7 @@ namespace Emby.Subtitle.Subscene.Providers
                 .Select(s => new RemoteSubtitleInfo()
                 {
                     Id = s.First().Id,
-                    Name = s.First().ProviderName,
+                    Name = $"{s.First().ProviderName} ({s.First().Author})",
                     Author = s.First().Author,
                     ProviderName = "Subscene",
                     Comment = string.Join("<br/>", s.Select(n => n.Name)),
