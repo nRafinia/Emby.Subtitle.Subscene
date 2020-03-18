@@ -86,32 +86,50 @@ namespace Emby.Subtitle.Subscene.Providers
             var opts = BaseRequestOptions;
             opts.Url = $"{Domain}/{downloadLink}";
 
-            using (var response = await _httpClient.GetResponse(opts).ConfigureAwait(false))
+            var ms = new MemoryStream();
+            var fileExt = string.Empty;
+            try
             {
-                var ms = new MemoryStream();
-                var archive = new ZipArchive(response.Content);
-
-                var item = (archive.Entries.Count > 1
-                    ? archive.Entries.FirstOrDefault(a => a.FullName.ToLower().Contains("utf"))
-                    : archive.Entries.First()) ?? archive.Entries.First();
-
-                await item.Open().CopyToAsync(ms).ConfigureAwait(false);
-                ms.Position = 0;
-
-                var fileExt = item.FullName.Split('.').LastOrDefault();
-
-                if (string.IsNullOrWhiteSpace(fileExt))
+                using (var response = await _httpClient.GetResponse(opts).ConfigureAwait(false))
                 {
-                    fileExt = "srt";
+                    _logger?.Info("Subscene=" + response.ContentType);
+                    var contentType = response.ContentType.ToLower();
+                    if (!contentType.Contains("zip"))
+                    {
+                        return new SubtitleResponse()
+                        {
+                            Stream = ms
+                        };
+                    }
+
+                    var archive = new ZipArchive(response.Content);
+
+                    var item = (archive.Entries.Count > 1
+                        ? archive.Entries.FirstOrDefault(a => a.FullName.ToLower().Contains("utf"))
+                        : archive.Entries.First()) ?? archive.Entries.First();
+
+                    await item.Open().CopyToAsync(ms).ConfigureAwait(false);
+                    ms.Position = 0;
+
+                    fileExt = item.FullName.Split('.').LastOrDefault();
+
+                    if (string.IsNullOrWhiteSpace(fileExt))
+                    {
+                        fileExt = "srt";
+                    }
                 }
-
-                return new SubtitleResponse
-                {
-                    Format = fileExt,
-                    Language = NormalizeLanguage(lang),
-                    Stream = ms
-                };
             }
+            catch (Exception e)
+            {
+                //
+            }
+
+            return new SubtitleResponse
+            {
+                Format = fileExt,
+                Language = NormalizeLanguage(lang),
+                Stream = ms
+            };
         }
 
         public async Task<IEnumerable<RemoteSubtitleInfo>> Search(SubtitleSearchRequest request,
