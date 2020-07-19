@@ -62,7 +62,7 @@ namespace Emby.Subtitle.Subscene.Providers
 
         public async Task<SubtitleResponse> GetSubtitles(string id, CancellationToken cancellationToken)
         {
-            var ids = id.Split(new[] { "___" }, StringSplitOptions.RemoveEmptyEntries);
+            var ids = id.Split(new[] {"___"}, StringSplitOptions.RemoveEmptyEntries);
             var url = ids[0].Replace("__", "/");
             var lang = ids[1];
 
@@ -135,8 +135,7 @@ namespace Emby.Subtitle.Subscene.Providers
         public async Task<IEnumerable<RemoteSubtitleInfo>> Search(SubtitleSearchRequest request,
             CancellationToken cancellationToken)
         {
-            KeyValuePair<string, string>? prov;
-            prov = request.ProviderIds?.FirstOrDefault(p =>
+            var prov = request.ProviderIds?.FirstOrDefault(p =>
                 p.Key.ToLower() == "imdb" || p.Key.ToLower() == "tmdb" || p.Key.ToLower() == "tvdb");
 
             if (prov == null)
@@ -150,8 +149,11 @@ namespace Emby.Subtitle.Subscene.Providers
                 ? request.Name
                 : request.SeriesName;
 
-            return await Search(title, request.ProductionYear, request.Language, request.ContentType, prov.Value.Value,
+            var res= await Search(title, request.ProductionYear, request.Language, request.ContentType, prov.Value.Value,
                 request.ParentIndexNumber ?? 0, request.IndexNumber ?? 0);
+
+            _logger?.Debug($"Subscene= result found={res?.Count()}");
+            return res;
         }
 
         public async Task<IEnumerable<RemoteSubtitleInfo>> Search(string title, int? year, string lang,
@@ -169,7 +171,6 @@ namespace Emby.Subtitle.Subscene.Providers
 
                 if (!res.Any())
                     return res;
-
             }
             catch (Exception e)
             {
@@ -186,6 +187,7 @@ namespace Emby.Subtitle.Subscene.Providers
                     Author = s.First().Author,
                     ProviderName = "Subscene",
                     Comment = string.Join("<br/>", s.Select(n => n.Name)),
+                    Format = "srt"
                 }).ToList();
             return res.OrderBy(s => s.Name);
         }
@@ -203,17 +205,20 @@ namespace Emby.Subtitle.Subscene.Providers
                 {
                     year = info.release_date.Year;
                     title = info.Title;
-                    _logger.Info($"Subscene= Original movie title=\"{info.Title}\", year={info.release_date.Year}");
+                    _logger?.Info($"Subscene= Original movie title=\"{info.Title}\", year={info.release_date.Year}");
                 }
             }
 
             #region Search subscene
+
             _logger?.Debug($"Subscene= Searching for site search \"{title}\"");
             var url = string.Format(SearchUrl, HttpUtility.UrlEncode(title));
             var html = await GetHtml(Domain, url);
 
             if (string.IsNullOrWhiteSpace(html))
+            {
                 return res;
+            }
 
             var xml = new XmlDocument();
             xml.LoadXml($"{XmlTag}{html}");
@@ -223,7 +228,8 @@ namespace Emby.Subtitle.Subscene.Providers
                 return res;
 
             var ex = xNode?.SelectSingleNode("h2[@class='exact']")
-                     ?? xNode?.SelectSingleNode("h2[@class='close']");
+                     ?? xNode?.SelectSingleNode("h2[@class='close']")
+                     ?? xNode?.SelectSingleNode("h2[@class='popular']");
 
             if (ex == null)
                 return res;
@@ -244,9 +250,11 @@ namespace Emby.Subtitle.Subscene.Providers
                 html = await GetHtml(Domain, link);
                 break;
             }
+
             #endregion
 
             #region Extract subtitle links
+
             xml = new XmlDocument();
             xml.LoadXml($"{XmlTag}{html}");
 
@@ -279,14 +287,17 @@ namespace Emby.Subtitle.Subscene.Providers
                 };
                 res.Add(item);
             }
+
             #endregion
 
             return res;
         }
 
-        private readonly string[] _seasonNumbers = { "", "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth" };
+        private readonly string[] _seasonNumbers =
+            {"", "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth"};
 
-        private async Task<List<RemoteSubtitleInfo>> SearchTV(string title, int? year, string lang, string movieId, int season, int episode)
+        private async Task<List<RemoteSubtitleInfo>> SearchTV(string title, int? year, string lang, string movieId,
+            int season, int episode)
         {
             var res = new List<RemoteSubtitleInfo>();
 
@@ -297,6 +308,7 @@ namespace Emby.Subtitle.Subscene.Providers
                 return new List<RemoteSubtitleInfo>();
 
             #region Search TV Shows
+
             title = info.Name;
 
             _logger?.Debug($"Subscene= Searching for site search \"{title}\"");
@@ -333,9 +345,11 @@ namespace Emby.Subtitle.Subscene.Providers
                 html = await GetHtml(Domain, link);
                 break;
             }
+
             #endregion
 
             #region Extract subtitle links
+
             xml = new XmlDocument();
             xml.LoadXml($"{XmlTag}{html}");
 
@@ -345,6 +359,7 @@ namespace Emby.Subtitle.Subscene.Providers
             {
                 return res;
             }
+
             foreach (XmlElement node in repeater)
             {
                 var name = RemoveExtraCharacter(node.SelectSingleNode(".//a")?.SelectNodes("span").Item(1)
@@ -367,6 +382,7 @@ namespace Emby.Subtitle.Subscene.Providers
                 };
                 res.Add(item);
             }
+
             #endregion
 
             var eTitle = $"S{season.ToString().PadLeft(2, '0')}E{episode.ToString().PadLeft(2, '0')}";
@@ -510,10 +526,10 @@ namespace Emby.Subtitle.Subscene.Providers
                     break;
                 case "nno":
                     lang = "norwegian";
-                    break;                
+                    break;
                 case "nob":
                     lang = "norwegian";
-                    break;                
+                    break;
                 case "nor":
                     lang = "norwegian";
                     break;

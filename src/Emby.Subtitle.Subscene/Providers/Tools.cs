@@ -68,6 +68,16 @@ namespace Emby.Subtitle.Subscene.Providers
             return retValue;
         }
 
+        /*public static async Task<T> RequestUrl<T>(string baseUrl, string path, HttpMethod method, object postData = null,
+            Dictionary<string, string> headers = null, int timeout = 10_000)
+        {
+            var r = await RequestUrl(baseUrl, path, method, postData, headers, timeout);
+            return string.IsNullOrWhiteSpace(r)
+                ? default(T)
+                : JsonConvert.DeserializeObject<T>(r);
+        }*/
+            
+
         /// <summary>
         /// Sub string by start index and end index
         /// </summary>

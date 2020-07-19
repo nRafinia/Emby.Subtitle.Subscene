@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Emby.Subtitle.Subscene.Models;
 using MediaBrowser.Common;
@@ -10,7 +11,7 @@ namespace Emby.Subtitle.Subscene.Providers
 {
     public class MovieDb
     {
-        private const string token = "API token";// Get https://www.themoviedb.org/ API token
+        private const string token = "d9d7bb04fb2c52c2b594c5e30065c23c";// Get https://www.themoviedb.org/ API token
         private readonly string _movieUrl = "https://api.themoviedb.org/3/movie/{0}?api_key={1}";
         private readonly string _tvUrl = "https://api.themoviedb.org/3/tv/{0}?api_key={1}";
         private readonly string _searchMovie = "https://api.themoviedb.org/3/find/{0}?api_key={1}&external_source={2}";
@@ -30,7 +31,9 @@ namespace Emby.Subtitle.Subscene.Providers
             var opts = BaseRequestOptions;
             opts.Url = string.Format(_movieUrl, id, token);
 
-            using (var response = await _httpClient.GetResponse(opts).ConfigureAwait(false))
+            /*var searchResults = await Tools.RequestUrl<MovieInformation>(opts.Url, "", HttpMethod.Get);
+            return searchResults;*/
+            using (var response = await _httpClient.GetResponse(opts)/*.ConfigureAwait(false)*/)
             {
                 if (response.ContentLength < 0)
                     return null;
@@ -82,7 +85,7 @@ namespace Emby.Subtitle.Subscene.Providers
 
         private HttpRequestOptions BaseRequestOptions => new HttpRequestOptions
         {
-            UserAgent = $"Emby/{_appHost.ApplicationVersion}"
+            UserAgent = $"Emby/{_appHost?.ApplicationVersion}"
         };
 
     }
