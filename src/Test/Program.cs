@@ -19,7 +19,8 @@ namespace Test
         {
             var txt = "The Old Guard";
             var lang = "per";
-            var searchResult = await new SubsceneSubtitleProvider(null, null, null, null, null)
+            var searchResult = await new 
+                    Emby.Subtitle.Subscene.Providers.SubsceneSubtitleProvider(null, null, null, null, null)
                 .Search(txt, 2020, lang, VideoContentType.Movie, "547016", 0, 0);
 
             Console.WriteLine("Result:");
