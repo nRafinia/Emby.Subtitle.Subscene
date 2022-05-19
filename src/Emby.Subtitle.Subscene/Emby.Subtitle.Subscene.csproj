@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
-    <Version>2.2.1</Version>
+    <Version>2.2.2</Version>
     <Authors>nRafinia</Authors>
     <PackageProjectUrl>https://github.com/nRafinia/Emby.Subtitle.Subscene</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MediaBrowser.Server.Core" Version="4.6.0.50" />
+    <PackageReference Include="MediaBrowser.Server.Core" Version="4.7.0.30" />
     <PackageReference Include="System.Memory" Version="4.5.4" />
   </ItemGroup>
 

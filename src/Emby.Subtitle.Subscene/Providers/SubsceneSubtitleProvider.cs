@@ -255,6 +255,7 @@ namespace Emby.Subtitle.Subscene.Providers
         {
             switch (lang.ToLower())
             {
+                case "fa":
                 case "per":
                     lang = "farsi_persian";
                     break;
