@@ -59,7 +59,7 @@ namespace Emby.Subtitle.Subscene.Providers
 
         public async Task<SubtitleResponse> GetSubtitles(string id, CancellationToken cancellationToken)
         {
-            var ids = id.Split(new[] {"___"}, StringSplitOptions.RemoveEmptyEntries);
+            var ids = id.Split(new[] { "___" }, StringSplitOptions.RemoveEmptyEntries);
             var url = ids[0].Replace("__", "/");
             var lang = ids[1];
 
@@ -132,8 +132,9 @@ namespace Emby.Subtitle.Subscene.Providers
         public async Task<IEnumerable<RemoteSubtitleInfo>> Search(SubtitleSearchRequest request,
             CancellationToken cancellationToken)
         {
-            var prov = request.ProviderIds?.FirstOrDefault(p =>
-                p.Key.ToLower() == "imdb" || p.Key.ToLower() == "tmdb" || p.Key.ToLower() == "tvdb");
+            var prov = request.ProviderIds?.FirstOrDefault(p => p.Key.ToLower() == "imdb") ??
+                       request.ProviderIds?.FirstOrDefault(p =>
+                           p.Key.ToLower() == "imdb" || p.Key.ToLower() == "tmdb" || p.Key.ToLower() == "tvdb");
 
             if (prov == null)
                 return new List<RemoteSubtitleInfo>();
@@ -146,7 +147,8 @@ namespace Emby.Subtitle.Subscene.Providers
                 ? request.Name
                 : request.SeriesName;
 
-            var res= await Search(title, request.ProductionYear, request.Language, request.ContentType, prov.Value.Value,
+            var res = await Search(title, request.ProductionYear, request.Language, request.ContentType,
+                prov.Value.Value,
                 request.ParentIndexNumber ?? 0, request.IndexNumber ?? 0);
 
             _logger?.Debug($"Subscene= result found={res?.Count()}");
@@ -197,14 +199,14 @@ namespace Emby.Subtitle.Subscene.Providers
         private async Task<string> GetHtml(string domain, string path)
         {
             var html = await Tools.RequestUrl(
-                    domain, 
-                    path, 
-                    HttpMethod.Get,
-                    null,
-                    new Dictionary<string, string>()
-                    {
-                        {"User-Agent",$"Emby/{_appHost?.ApplicationVersion}"}
-                    });
+                domain,
+                path,
+                HttpMethod.Get,
+                null,
+                new Dictionary<string, string>()
+                {
+                    { "User-Agent", $"Emby/{_appHost?.ApplicationVersion}" }
+                });
 
             var scIndex = html.IndexOf("<script");
             while (scIndex >= 0)
@@ -403,7 +405,5 @@ namespace Emby.Subtitle.Subscene.Providers
 
             return lang;
         }
-
-
     }
 }
