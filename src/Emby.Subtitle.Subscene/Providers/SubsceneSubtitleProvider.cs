@@ -187,7 +187,7 @@ namespace Emby.Subtitle.Subscene.Providers
                     Author = s.First().Author,
                     ProviderName = "Subscene",
                     Comment = string.Join("<br/>", s.Select(n => n.Name)),
-                    //Format = "srt"
+                    Format = "srt"
                 }).ToList();
             return res.OrderBy(s => s.Name);
         }
