@@ -84,48 +84,49 @@ namespace Emby.Subtitle.Subscene.Providers
             opts.Url = $"{Domain}/{downloadLink}";
 
             var ms = new MemoryStream();
-            var fileExt = string.Empty;
             try
             {
-                using (var response = await _httpClient.GetResponse(opts).ConfigureAwait(false))
+                using var response = await _httpClient.GetResponse(opts).ConfigureAwait(false);
+                _logger?.Info("Subscene=" + response.ContentType);
+                var contentType = response.ContentType.ToLower();
+                if (!contentType.Contains("zip"))
                 {
-                    _logger?.Info("Subscene=" + response.ContentType);
-                    var contentType = response.ContentType.ToLower();
-                    if (!contentType.Contains("zip"))
+                    return new SubtitleResponse()
                     {
-                        return new SubtitleResponse()
-                        {
-                            Stream = ms
-                        };
-                    }
-
-                    var archive = new ZipArchive(response.Content);
-
-                    var item = (archive.Entries.Count > 1
-                        ? archive.Entries.FirstOrDefault(a => a.FullName.ToLower().Contains("utf"))
-                        : archive.Entries.First()) ?? archive.Entries.First();
-
-                    await item.Open().CopyToAsync(ms).ConfigureAwait(false);
-                    ms.Position = 0;
-
-                    fileExt = item.FullName.Split('.').LastOrDefault();
-
-                    if (string.IsNullOrWhiteSpace(fileExt))
-                    {
-                        fileExt = "srt";
-                    }
+                        Stream = ms
+                    };
                 }
+
+                var archive = new ZipArchive(response.Content);
+
+                var item = (archive.Entries.Count > 1
+                    ? archive.Entries.FirstOrDefault(a => a.FullName.ToLower().Contains("utf"))
+                    : archive.Entries.First()) ?? archive.Entries.First();
+
+                await item.Open().CopyToAsync(ms).ConfigureAwait(false);
+                ms.Position = 0;
+
+                var fileExt = item.FullName.Split('.').LastOrDefault();
+
+                if (string.IsNullOrWhiteSpace(fileExt))
+                {
+                    fileExt = ".srt";
+                }
+                return new SubtitleResponse
+                {
+                    Format = fileExt[1..],
+                    Language = NormalizeLanguage(lang),
+                    Stream = ms
+                };
             }
             catch (Exception e)
             {
                 //
             }
 
-            return new SubtitleResponse
+            return new SubtitleResponse()
             {
-                Format = fileExt,
-                Language = NormalizeLanguage(lang),
-                Stream = ms
+                Stream = Stream.Null
             };
         }
 
@@ -186,7 +187,7 @@ namespace Emby.Subtitle.Subscene.Providers
                     Author = s.First().Author,
                     ProviderName = "Subscene",
                     Comment = string.Join("<br/>", s.Select(n => n.Name)),
-                    Format = "srt"
+                    //Format = "srt"
                 }).ToList();
             return res.OrderBy(s => s.Name);
         }
