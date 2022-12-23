@@ -103,18 +103,18 @@ namespace Emby.Subtitle.Subscene.Providers
                     ? archive.Entries.FirstOrDefault(a => a.FullName.ToLower().Contains("utf"))
                     : archive.Entries.First()) ?? archive.Entries.First();
 
-                await item.Open().CopyToAsync(ms).ConfigureAwait(false);
+                await item.Open().CopyToAsync(ms, cancellationToken).ConfigureAwait(false);
                 ms.Position = 0;
 
                 var fileExt = item.FullName.Split('.').LastOrDefault();
 
                 if (string.IsNullOrWhiteSpace(fileExt))
                 {
-                    fileExt = ".srt";
+                    fileExt = "srt";
                 }
                 return new SubtitleResponse
                 {
-                    Format = fileExt[1..],
+                    Format = fileExt,
                     Language = NormalizeLanguage(lang),
                     Stream = ms
                 };
